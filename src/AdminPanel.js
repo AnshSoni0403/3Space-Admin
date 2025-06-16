@@ -5,7 +5,9 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import ArticleIcon from '@mui/icons-material/Article';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Inquiries from './Inquiries';
-import BlogManagement from './BlogManagement'; // Import the BlogManagement component
+import BlogManagement from './BlogManagement';
+import BlogList from './components/BlogList';
+import CareerManagement from './components/CareerManagement'; // Import the CareerManagement component
 
 const drawerWidth = 240;
 
@@ -91,6 +93,14 @@ const AdminPanel = () => {
           <ArticleIcon sx={{ mr: 2 }} />
           <ListItemText primary="Blogs" />
         </ListItem>
+        <ListItem button selected={selectedItem === 'blog-list'} onClick={() => handleMenuItemClick('blog-list')}>
+          <ArticleIcon sx={{ mr: 2 }} />
+          <ListItemText primary="Blog List" />
+        </ListItem>
+        <ListItem button selected={selectedItem === 'careers'} onClick={() => handleMenuItemClick('careers')}>
+          <ArticleIcon sx={{ mr: 2 }} />
+          <ListItemText primary="Careers" />
+        </ListItem>
       </List>
     </div>
   );
@@ -167,6 +177,8 @@ const AdminPanel = () => {
           <Toolbar />
           {selectedItem === 'inquiries' && <Inquiries />}
           {selectedItem === 'blogs' && <BlogManagement />}
+          {selectedItem === 'blog-list' && <BlogList />}
+          {selectedItem === 'careers' && <CareerManagement />}
           {/* Other sections can be added here based on selectedItem */}
         </Box>
       </Box>
