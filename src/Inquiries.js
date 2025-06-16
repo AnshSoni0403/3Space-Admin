@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, CircularProgress, Alert, Paper, TableContainer, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import {
+  Box, Typography, CircularProgress,
+  Alert, Paper, TableContainer,
+  Table, TableHead, TableRow,
+  TableCell, TableBody
+} from '@mui/material';
 
 const Inquiries = () => {
   const [messages, setMessages] = useState([]);
@@ -9,14 +14,18 @@ const Inquiries = () => {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        // Replace with your actual backend API URL
-        const response = await fetch('https://threespacebackend.onrender.com/api/contacts');
+        const response = await fetch('https://threespacebackend.onrender.com/api/contact');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
-        setMessages(data.data); // Assuming the messages are in data.data
+        const json = await response.json();
+        if (json.success) {
+          setMessages(json.data);
+        } else {
+          throw new Error(json.message || "Failed to load inquiries.");
+        }
       } catch (err) {
+        console.error("Error fetching messages:", err.message);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -44,34 +53,30 @@ const Inquiries = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" component="h2" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         Customer Inquiries
       </Typography>
+
       {messages.length === 0 ? (
         <Typography>No inquiries found.</Typography>
       ) : (
         <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 650 }} aria-label="simple table">
+          <Table sx={{ minWidth: 650 }} aria-label="inquiries table">
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Message</TableCell>
-                <TableCell>Date</TableCell>
+                <TableCell><strong>Name</strong></TableCell>
+                <TableCell><strong>Email</strong></TableCell>
+                <TableCell><strong>Message</strong></TableCell>
+                <TableCell><strong>Date</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {messages.map((message) => (
-                <TableRow
-                  key={message._id}
-                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                >
-                  <TableCell component="th" scope="row">
-                    {message.name}
-                  </TableCell>
-                  <TableCell>{message.email}</TableCell>
-                  <TableCell>{message.message}</TableCell>
-                  <TableCell>{new Date(message.createdAt).toLocaleString()}</TableCell>
+              {messages.map((msg) => (
+                <TableRow key={msg._id}>
+                  <TableCell>{msg.name}</TableCell>
+                  <TableCell>{msg.email}</TableCell>
+                  <TableCell>{msg.message}</TableCell>
+                  <TableCell>{new Date(msg.createdAt).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -82,4 +87,4 @@ const Inquiries = () => {
   );
 };
 
-export default Inquiries; 
+export default Inquiries;
