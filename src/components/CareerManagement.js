@@ -63,6 +63,15 @@ const CareerManagement = () => {
     { value: 'contract', label: 'Contract' },
   ];
 
+  const field = [
+    { value: 'engineering', label: 'Engineering' },
+    { value: 'Software', label: 'Software' },
+    { value: 'Production', label: 'Production' },
+    { value: 'Operation', label: 'Operation' },
+    { value: 'Marketing', label: 'Marketing' },
+  ];
+
+
   // Fetch careers
   useEffect(() => {
     const fetchCareers = async () => {
@@ -265,16 +274,23 @@ const CareerManagement = () => {
               onChange={handleChange}
               required
             />
-            <TextField
-              margin="dense"
-              name="field"
-              label="Field"
-              type="text"
-              fullWidth
-              value={formData.field}
-              onChange={handleChange}
-              required
-            />
+
+            <FormControl fullWidth margin="dense">
+              <InputLabel>Job Field</InputLabel>
+              <Select
+                name="field"
+                value={formData.field}
+                onChange={handleChange}
+                required
+              >
+                {field.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             <FormControl fullWidth margin="dense">
               <InputLabel>Work Type</InputLabel>
               <Select
