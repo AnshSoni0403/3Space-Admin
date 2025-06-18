@@ -68,7 +68,7 @@ const CareerManagement = () => {
   useEffect(() => {
     const fetchCareers = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/careers/all');
+        const response = await fetch('https://threespacebackend.onrender.com/api/careers/all');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
