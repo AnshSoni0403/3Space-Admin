@@ -5,7 +5,6 @@ import {
   Container,
   TextField,
   Typography,
-  Paper,
   Grid,
   Card,
   CardContent,
@@ -23,8 +22,10 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
   Divider,
+  Snackbar,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -37,56 +38,60 @@ const CareerManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [currentCareer, setCurrentCareer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // Form state
   const [formData, setFormData] = useState({
-    jobTitle: '',
-    field: '',
+    JobTitle: '',
+    Field: '',
     workType: '',
     employmentType: '',
     description: '',
-    responsibilities: '',
-    requirements: '',
+    responsibilities: [],
+    requirements: [],
   });
 
-  // Work type options
-  const workTypeOptions = [
-    { value: 'remote', label: 'Remote' },
-    { value: 'office', label: 'Office' },
-    { value: 'hybrid', label: 'Hybrid' },
-  ];
+  const [tempResponsibility, setTempResponsibility] = useState('');
+  const [tempRequirement, setTempRequirement] = useState('');
 
-  // Employment type options
-  const employmentTypeOptions = [
-    { value: 'fulltime', label: 'Full-time' },
-    { value: 'parttime', label: 'Part-time' },
-    { value: 'contract', label: 'Contract' },
-  ];
-
-  const field = [
-    { value: 'engineering', label: 'Engineering' },
-    { value: 'Software', label: 'Software' },
-    { value: 'Production', label: 'Production' },
-    { value: 'Operation', label: 'Operation' },
-    { value: 'Marketing', label: 'Marketing' },
-  ];
-
+  // Options
+  const workTypeOptions = ['Remote', 'Office', 'Hybrid'];
+  const employmentTypeOptions = ['Full Time', 'Part Time', 'Contract'];
+  const fieldOptions = ['Engineering', 'Software', 'Production', 'Operations'];
 
   // Fetch careers
   useEffect(() => {
     const fetchCareers = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/careers');
+        const response = await fetch('https://threespacebackend.onrender.com/api/careers/all');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
-        setCareers(data);
+        setCareers(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching careers:', error);
+        setError(error.message);
+        showSnackbar('Error fetching careers', 'error');
       } finally {
         setLoading(false);
       }
     };
     fetchCareers();
   }, []);
+
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
 
   // Handle form changes
   const handleChange = (e) => {
@@ -97,11 +102,66 @@ const CareerManagement = () => {
     });
   };
 
+  // Add responsibility
+  const addResponsibility = () => {
+    if (tempResponsibility.trim()) {
+      setFormData({
+        ...formData,
+        responsibilities: [...formData.responsibilities, tempResponsibility.trim()],
+      });
+      setTempResponsibility('');
+    }
+  };
+
+  // Remove responsibility
+  const removeResponsibility = (index) => {
+    const newResponsibilities = [...formData.responsibilities];
+    newResponsibilities.splice(index, 1);
+    setFormData({
+      ...formData,
+      responsibilities: newResponsibilities,
+    });
+  };
+
+  // Add requirement
+  const addRequirement = () => {
+    if (tempRequirement.trim()) {
+      setFormData({
+        ...formData,
+        requirements: [...formData.requirements, tempRequirement.trim()],
+      });
+      setTempRequirement('');
+    }
+  };
+
+  // Remove requirement
+  const removeRequirement = (index) => {
+    const newRequirements = [...formData.requirements];
+    newRequirements.splice(index, 1);
+    setFormData({
+      ...formData,
+      requirements: newRequirements,
+    });
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const url = currentCareer ? `http://localhost:5000/api/careers/${currentCareer._id}` : 'http://localhost:5000/api/careers';
+      const careerData = {
+        JobTitle: formData.JobTitle,
+        Field: formData.Field,
+        workType: formData.workType,
+        employmentType: formData.employmentType,
+        description: formData.description,
+        responsibilities: formData.responsibilities,
+        requirements: formData.requirements,
+      };
+
+      const url = currentCareer 
+        ? `https://threespacebackend.onrender.com/api/careers/${currentCareer._id}` 
+        : 'https://threespacebackend.onrender.com/api/careers';
+      
       const method = currentCareer ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -109,34 +169,63 @@ const CareerManagement = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(careerData),
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        if (currentCareer) {
-          setCareers(careers.map(career => career._id === currentCareer._id ? data : career));
-        } else {
-          setCareers([...careers, data]);
-        }
-        handleCloseDialog();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to save career');
       }
+
+      const data = await response.json();
+      
+      if (currentCareer) {
+        setCareers(careers.map(career => career._id === currentCareer._id ? data : career));
+        showSnackbar('Career updated successfully');
+      } else {
+        setCareers(prevCareers => [data, ...prevCareers]);
+        showSnackbar('Career added successfully');
+      }
+      
+      handleCloseDialog();
     } catch (error) {
       console.error('Error saving career:', error);
+      showSnackbar(error.message || 'Error saving career', 'error');
     }
   };
 
   // Handle delete
   const handleDelete = async (careerId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/careers/${careerId}`, {
+      const response = await fetch(`https://threespacebackend.onrender.com/api/careers/${careerId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add authorization if needed:
+          // 'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
-      if (response.ok) {
-        setCareers(careers.filter(career => career._id !== careerId));
+  
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || 
+          errorData.error || 
+          `Delete failed with status ${response.status}`
+        );
       }
+  
+      setCareers(prevCareers => 
+        prevCareers.filter(career => career._id !== careerId)
+      );
+      showSnackbar('Career deleted successfully');
+      
     } catch (error) {
-      console.error('Error deleting career:', error);
+      console.error('Delete error details:', error);
+      showSnackbar(
+        error.message || 'Failed to delete career. Please try again.',
+        'error'
+      );
     }
   };
 
@@ -144,15 +233,38 @@ const CareerManagement = () => {
   const handleEdit = (career) => {
     setCurrentCareer(career);
     setFormData({
-      jobTitle: career.jobTitle,
-      field: career.field,
+      JobTitle: career.JobTitle,
+      Field: career.Field,
       workType: career.workType,
       employmentType: career.employmentType,
       description: career.description,
-      responsibilities: career.responsibilities,
-      requirements: career.requirements,
+      responsibilities: [...career.responsibilities],
+      requirements: [...career.requirements],
     });
     setOpenDialog(true);
+  };
+
+  // Toggle active status
+  const toggleActiveStatus = async (careerId, currentStatus) => {
+    try {
+      const response = await fetch(`https://threespacebackend.onrender.com/api/careers/toggle/${careerId}`, {
+        method: 'PUT',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to toggle status');
+      }
+      
+      const updatedCareer = await response.json();
+      setCareers(prevCareers => 
+        prevCareers.map(career => career._id === careerId ? updatedCareer : career)
+      );
+      showSnackbar(`Career marked as ${updatedCareer.isActive ? 'active' : 'inactive'}`);
+    } catch (error) {
+      console.error('Error toggling career status:', error);
+      showSnackbar(error.message || 'Error toggling career status', 'error');
+    }
   };
 
   // Dialog handlers
@@ -160,26 +272,30 @@ const CareerManagement = () => {
     setOpenDialog(false);
     setCurrentCareer(null);
     setFormData({
-      jobTitle: '',
-      field: '',
+      JobTitle: '',
+      Field: '',
       workType: '',
       employmentType: '',
       description: '',
-      responsibilities: '',
-      requirements: '',
+      responsibilities: [],
+      requirements: [],
     });
-  };
-
-  // Format responsibilities and requirements as list items
-  const formatList = (text) => {
-    if (!text) return [];
-    return text.split('\n').filter(item => item.trim());
+    setTempResponsibility('');
+    setTempRequirement('');
   };
 
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-        Loading...
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+        <Typography color="error">Error: {error}</Typography>
       </Box>
     );
   }
@@ -194,180 +310,280 @@ const CareerManagement = () => {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => {
-            setCurrentCareer(null);
-            setOpenDialog(true);
-          }}
+          onClick={() => setOpenDialog(true)}
         >
           Add New Career
         </Button>
       </Box>
 
-      <Grid container spacing={3}>
-        {careers.map((career) => (
-          <Grid item xs={12} sm={6} md={4} key={career._id}>
-            <Card sx={{ height: '100%' }}>
-              <CardHeader
-                title={career.jobTitle}
-                subheader={career.field}
-                action={
-                  <Box>
-                    <IconButton onClick={() => handleEdit(career)}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton onClick={() => handleDelete(career._id)}>
-                      <DeleteIcon />
-                    </IconButton>
+      {careers.length === 0 ? (
+        <Typography variant="body1" align="center" sx={{ mt: 4 }}>
+          No career postings available
+        </Typography>
+      ) : (
+        <Grid container spacing={3}>
+          {careers.map((career) => (
+            <Grid item xs={12} sm={6} md={4} key={career._id}>
+              <Card sx={{ height: '100%' }}>
+                <CardHeader
+                  title={career.JobTitle}
+                  subheader={career.Field}
+                  action={
+                    <Box>
+                      <IconButton onClick={() => handleEdit(career)}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton onClick={() => handleDelete(career._id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                  }
+                />
+                <CardContent>
+                  <Box sx={{ mb: 2 }}>
+                    <Chip
+                      label={`${career.workType} / ${career.employmentType}`}
+                      size="small"
+                      sx={{ mr: 1 }}
+                    />
+                    <Chip
+                      label={career.isActive ? 'Active' : 'Inactive'}
+                      color={career.isActive ? 'success' : 'error'}
+                      size="small"
+                      onClick={() => toggleActiveStatus(career._id, career.isActive)}
+                      clickable
+                    />
                   </Box>
-                }
-              />
-              <CardContent>
-                <Box sx={{ mb: 2 }}>
-                  <Chip
-                    label={`${career.workType} / ${career.employmentType}`}
-                    size="small"
-                    sx={{ mr: 1 }}
-                  />
-                </Box>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  {career.description}
-                </Typography>
-                <Typography variant="h6" sx={{ mt: 2 }}>
-                  Responsibilities:
-                </Typography>
-                <List dense>
-                  {formatList(career.responsibilities).map((item, index) => (
-                    <ListItem key={index}>
-                      <ListItemText primary={item} />
-                    </ListItem>
-                  ))}
-                </List>
-                <Typography variant="h6" sx={{ mt: 2 }}>
-                  Requirements:
-                </Typography>
-                <List dense>
-                  {formatList(career.requirements).map((item, index) => (
-                    <ListItem key={index}>
-                      <ListItemText primary={item} />
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    {career.description}
+                  </Typography>
+                  
+                  <Typography variant="subtitle1">Responsibilities:</Typography>
+                  <List dense>
+                    {career.responsibilities.map((item, index) => (
+                      <ListItem key={index}>
+                        <ListItemText primary={`• ${item}`} />
+                      </ListItem>
+                    ))}
+                  </List>
+                  
+                  <Divider sx={{ my: 1 }} />
+                  
+                  <Typography variant="subtitle1">Requirements:</Typography>
+                  <List dense>
+                    {career.requirements.map((item, index) => (
+                      <ListItem key={index}>
+                        <ListItemText primary={`• ${item}`} />
+                      </ListItem>
+                    ))}
+                  </List>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
       {/* Add/Edit Career Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{currentCareer ? 'Edit Career' : 'Add New Career'}</DialogTitle>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+          {currentCareer ? 'Edit Career' : 'Add New Career'}
+        </DialogTitle>
         <form onSubmit={handleSubmit}>
           <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              name="jobTitle"
-              label="Job Title"
-              type="text"
-              fullWidth
-              value={formData.jobTitle}
-              onChange={handleChange}
-              required
-            />
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                Job Title *
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                name="JobTitle"
+                value={formData.JobTitle}
+                onChange={handleChange}
+                required
+              />
+            </Box>
 
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Job Field</InputLabel>
-              <Select
-                name="field"
-                value={formData.field}
-                onChange={handleChange}
-                required
-              >
-                {field.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Grid container spacing={2}>
+              <Grid item xs={4}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                  Field
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    name="Field"
+                    value={formData.Field}
+                    onChange={handleChange}
+                    required
+                  >
+                    {fieldOptions.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={4}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                  Work Type
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    name="workType"
+                    value={formData.workType}
+                    onChange={handleChange}
+                    required
+                  >
+                    {workTypeOptions.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={4}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                  Employment Type
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    name="employmentType"
+                    value={formData.employmentType}
+                    onChange={handleChange}
+                    required
+                  >
+                    {employmentTypeOptions.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
 
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Work Type</InputLabel>
-              <Select
-                name="workType"
-                value={formData.workType}
+            <Box sx={{ mt: 2, mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                Description *
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                name="description"
+                value={formData.description}
                 onChange={handleChange}
                 required
-              >
-                {workTypeOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
+              />
+            </Box>
+
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                Responsibilities
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={tempResponsibility}
+                  onChange={(e) => setTempResponsibility(e.target.value)}
+                  placeholder="Add responsibility"
+                />
+                <Button 
+                  variant="contained"
+                  onClick={addResponsibility}
+                  disabled={!tempResponsibility.trim()}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  ADD
+                </Button>
+              </Box>
+              <List dense sx={{ mt: 1 }}>
+                {formData.responsibilities.map((item, index) => (
+                  <ListItem key={index} sx={{ py: 0 }}>
+                    <ListItemText primary={`• ${item}`} />
+                    <IconButton edge="end" onClick={() => removeResponsibility(index)} size="small">
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </ListItem>
                 ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Employment Type</InputLabel>
-              <Select
-                name="employmentType"
-                value={formData.employmentType}
-                onChange={handleChange}
-                required
-              >
-                {employmentTypeOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
+              </List>
+            </Box>
+
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                Requirements
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={tempRequirement}
+                  onChange={(e) => setTempRequirement(e.target.value)}
+                  placeholder="Add requirement"
+                />
+                <Button 
+                  variant="contained"
+                  onClick={addRequirement}
+                  disabled={!tempRequirement.trim()}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  ADD
+                </Button>
+              </Box>
+              <List dense sx={{ mt: 1 }}>
+                {formData.requirements.map((item, index) => (
+                  <ListItem key={index} sx={{ py: 0 }}>
+                    <ListItemText primary={`• ${item}`} />
+                    <IconButton edge="end" onClick={() => removeRequirement(index)} size="small">
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </ListItem>
                 ))}
-              </Select>
-            </FormControl>
-            <TextField
-              margin="dense"
-              name="description"
-              label="Description"
-              type="text"
-              fullWidth
-              multiline
-              rows={4}
-              value={formData.description}
-              onChange={handleChange}
-              required
-            />
-            <TextField
-              margin="dense"
-              name="responsibilities"
-              label="Responsibilities (one per line)"
-              type="text"
-              fullWidth
-              multiline
-              rows={4}
-              value={formData.responsibilities}
-              onChange={handleChange}
-              required
-            />
-            <TextField
-              margin="dense"
-              name="requirements"
-              label="Requirements (one per line)"
-              type="text"
-              fullWidth
-              multiline
-              rows={4}
-              value={formData.requirements}
-              onChange={handleChange}
-              required
-            />
+              </List>
+            </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>
-              Cancel
+          <DialogActions sx={{ justifyContent: 'center', p: 2 }}>
+            <Button 
+              onClick={handleCloseDialog} 
+              variant="outlined"
+              sx={{ mr: 2 }}
+            >
+              CANCEL
             </Button>
-            <Button type="submit" variant="contained" startIcon={<SaveIcon />}>
-              {currentCareer ? 'Update' : 'Add'} Career
+            <Button 
+              type="submit" 
+              variant="contained"
+              disabled={
+                !formData.JobTitle ||
+                !formData.Field ||
+                !formData.workType ||
+                !formData.employmentType ||
+                !formData.description ||
+                formData.responsibilities.length === 0 ||
+                formData.requirements.length === 0
+              }
+            >
+              {currentCareer ? 'UPDATE CAREER' : 'ADD CAREER'}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

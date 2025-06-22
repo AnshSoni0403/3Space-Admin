@@ -5,7 +5,7 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import ArticleIcon from '@mui/icons-material/Article';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Inquiries from './Inquiries';
-import BlogManagement from './BlogManagement';
+import BlogManagementPage from './components/BlogManagementPage';
 import BlogList from './components/BlogList';
 import CareerManagement from './components/CareerManagement'; // Import the CareerManagement component
 
@@ -176,7 +176,7 @@ const AdminPanel = () => {
         >
           <Toolbar />
           {selectedItem === 'inquiries' && <Inquiries />}
-          {selectedItem === 'blogs' && <BlogManagement />}
+          {selectedItem === 'blogs' && <BlogManagementPage />}
           {selectedItem === 'blog-list' && <BlogList />}
           {selectedItem === 'careers' && <CareerManagement />}
           {/* Other sections can be added here based on selectedItem */}
