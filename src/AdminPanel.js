@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TextField, Button, Box, Typography, Container, AppBar, Toolbar, IconButton, Drawer, List, ListItem, ListItemText, CssBaseline } from '@mui/material';
+import { TextField, Button, Box, Typography, Container, AppBar, Toolbar, IconButton, Drawer, List, ListItem, ListItemText, CssBaseline, Alert } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import InboxIcon from '@mui/icons-material/Inbox';
 import ArticleIcon from '@mui/icons-material/Article';
@@ -7,21 +7,70 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import Inquiries from './Inquiries';
 import BlogManagementPage from './components/BlogManagementPage';
 import BlogList from './components/BlogList';
-import CareerManagement from './components/CareerManagement'; // Import the CareerManagement component
+import CareerManagement from './components/CareerManagement';
+
+// Mock database of users (in a real app, this would be in your backend)
+const USERS = [
+  { id: 1, username: 'admin', password: 'admin123', name: 'Administrator' },
+  { id: 2, username: 'editor', password: 'editor123', name: 'Content Editor' },
+  // Add more users as needed
+];
+
+// Session timeout in milliseconds (30 minutes)
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 const drawerWidth = 240;
 
 const AdminPanel = () => {
-  // Check if user is logged in from localStorage
+  // Check for active session on mount
   useEffect(() => {
-    const savedLogin = localStorage.getItem('adminLogin');
-    if (savedLogin) {
-      const { username, password } = JSON.parse(savedLogin);
-      setUsername(username);
-      setPassword(password);
-      setIsLoggedIn(true);
-    }
+    const checkSession = () => {
+      const sessionData = sessionStorage.getItem('adminSession');
+      if (sessionData) {
+        const { username, timestamp } = JSON.parse(sessionData);
+        const currentTime = new Date().getTime();
+        
+        // Check if session is expired
+        if (currentTime - timestamp < SESSION_TIMEOUT) {
+          // Session is valid
+          const user = USERS.find(u => u.username === username);
+          if (user) {
+            setUsername(user.username);
+            setIsLoggedIn(true);
+            // Reset the session timestamp
+            sessionStorage.setItem('adminSession', JSON.stringify({
+              username: user.username,
+              timestamp: currentTime
+            }));
+            return;
+          }
+        }
+        // If we get here, session is invalid or user not found
+        handleLogout();
+      }
+    };
+
+    checkSession();
+
+    // Set up session timeout check every minute
+    const interval = setInterval(checkSession, 60000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(interval);
   }, []);
+
+  // Set up beforeunload event to clear session on tab close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.removeItem('adminSession');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -46,12 +95,16 @@ const AdminPanel = () => {
   }, [isLoggedIn]);
 
   const handleLogin = () => {
-    // In a real application, you would send these credentials to a backend for authentication.
-    // For this example, we'll use a simple hardcoded check.
-    if (username === 'admin' && password === 'admin123') {
+    // In a real application, this would be an API call to your backend
+    const user = USERS.find(u => u.username === username && u.password === password);
+    
+    if (user) {
       setIsLoggedIn(true);
-      // Save login state to localStorage
-      localStorage.setItem('adminLogin', JSON.stringify({ username, password }));
+      // Save session to sessionStorage
+      sessionStorage.setItem('adminSession', JSON.stringify({
+        username: user.username,
+        timestamp: new Date().getTime()
+      }));
     } else {
       alert('Invalid credentials');
     }
@@ -61,7 +114,7 @@ const AdminPanel = () => {
     setIsLoggedIn(false);
     setUsername('');
     setPassword('');
-    localStorage.removeItem('adminLogin');
+    sessionStorage.removeItem('adminSession');
   };
 
   const handleContentRefresh = () => {
@@ -200,7 +253,7 @@ const AdminPanel = () => {
         <Typography component="h1" variant="h5">
           Admin Login
         </Typography>
-        <Box component="form" noValidate sx={{ mt: 1 }}>
+        <Box component="form" sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
             required
@@ -212,6 +265,7 @@ const AdminPanel = () => {
             autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            sx={{ mb: 2 }}
           />
           <TextField
             margin="normal"
@@ -224,20 +278,25 @@ const AdminPanel = () => {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            sx={{ mb: 3 }}
           />
           <Button
-            type="submit"
+            type="button"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ mt: 1, mb: 2, py: 1.5 }}
             onClick={handleLogin}
+            disabled={!username || !password}
           >
             Sign In
           </Button>
+          <Typography variant="body2" color="textSecondary" align="center" sx={{ mt: 2 }}>
+            Session will expire after 30 minutes of inactivity or when the tab is closed.
+          </Typography>
         </Box>
       </Box>
     </Container>
   );
 };
 
-export default AdminPanel; 
+export default AdminPanel;
