@@ -8,6 +8,7 @@ import Inquiries from './Inquiries';
 import BlogManagementPage from './components/BlogManagementPage';
 import BlogList from './components/BlogList';
 import CareerManagement from './components/CareerManagement';
+import ProductsManagement from './components/ProductsManagement';
 
 // Mock database of users (in a real app, this would be in your backend)
 const USERS = [
@@ -154,6 +155,10 @@ const AdminPanel = () => {
           <ArticleIcon sx={{ mr: 2 }} />
           <ListItemText primary="Careers" />
         </ListItem>
+        <ListItem button selected={selectedItem === 'products'} onClick={() => handleMenuItemClick('products')}>
+          <ArticleIcon sx={{ mr: 2 }} />
+          <ListItemText primary="Products" />
+        </ListItem>
       </List>
     </div>
   );
@@ -232,6 +237,7 @@ const AdminPanel = () => {
           {selectedItem === 'blogs' && <BlogManagementPage />}
           {selectedItem === 'blog-list' && <BlogList />}
           {selectedItem === 'careers' && <CareerManagement />}
+          {selectedItem === 'products' && <ProductsManagement />}
           {/* Other sections can be added here based on selectedItem */}
         </Box>
       </Box>
