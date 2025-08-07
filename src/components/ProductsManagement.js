@@ -38,8 +38,8 @@ const ProductsManagement = () => {
     imagePreview: ''
   });
 
-  // Use mock server URL in development
-  const API_URL = 'http://localhost:5000/api/products';
+  // Production backend URL
+  const API_URL = 'https://threespacebackend.onrender.com/api/products';
 
   // Helper function to parse response as JSON or text
   const parseResponse = async (response) => {
@@ -116,55 +116,191 @@ const ProductsManagement = () => {
     setLoading(true);
 
     try {
+      // Log form data for debugging (without the actual file object)
+      const formDataLog = {
+        ...formData,
+        image: formData.image ? (typeof formData.image === 'string' ? 'Existing image' : 'New file selected') : 'No file',
+        price: formData.price,
+        oldPrice: formData.oldPrice || '',
+        isNew: formData.isNew,
+        tags: formData.tags
+      };
+      console.log('Form data being submitted:', formDataLog);
+
+      // Create form data with validation
       const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('price', formData.price);
-      formDataToSend.append('oldPrice', formData.oldPrice || '');
-      formDataToSend.append('isNew', formData.isNew);
-      formDataToSend.append('tags', formData.tags);
       
-      // Only append image if it's a new file (not the existing image URL)
+      // Validate required fields
+      if (!formData.name || !formData.description || !formData.price) {
+        throw new Error('Please fill in all required fields: Name, Description, and Price');
+      }
+      
+      // Add fields with validation
+      formDataToSend.append('name', formData.name.trim());
+      formDataToSend.append('description', formData.description.trim());
+      
+      // Validate price is a number
+      const price = parseFloat(formData.price);
+      if (isNaN(price)) {
+        throw new Error('Price must be a valid number');
+      }
+      formDataToSend.append('price', price);
+      
+      // Add optional fields if they exist
+      if (formData.oldPrice) {
+        const oldPrice = parseFloat(formData.oldPrice);
+        if (!isNaN(oldPrice)) {
+          formDataToSend.append('oldPrice', oldPrice);
+        }
+      }
+      
+      formDataToSend.append('isNew', formData.isNew ? 'true' : 'false');
+      
+      // Handle tags - convert string to array if needed
+      if (formData.tags) {
+        const tags = Array.isArray(formData.tags) 
+          ? formData.tags 
+          : formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+        formDataToSend.append('tags', JSON.stringify(tags));
+      }
+      
+      // Handle image upload
       if (formData.image && typeof formData.image !== 'string') {
+        console.log('Appending image file to form data');
+        // Validate image size (e.g., 5MB max)
+        if (formData.image.size > 5 * 1024 * 1024) {
+          throw new Error('Image size should be less than 5MB');
+        }
         formDataToSend.append('image', formData.image);
+      } else if (formData.image) {
+        console.log('Using existing image path:', formData.image);
       }
 
       const url = editingId ? `${API_URL}/${editingId}` : API_URL;
       const method = editingId ? 'PUT' : 'POST';
       
-      console.log(`Sending ${method} request to:`, url);
-      
-      const response = await fetch(url, {
+      // Log request details (without the actual file content)
+      const requestDetails = {
         method,
-        body: formDataToSend,
-        // Don't set Content-Type header - let the browser set it with the correct boundary
-      });
-
-      console.log('Response status:', response.status);
+        url,
+        headers: {
+          'Accept': 'application/json',
+        },
+        body: {
+          name: formData.name,
+          description: formData.description,
+          price: formData.price,
+          oldPrice: formData.oldPrice,
+          isNew: formData.isNew,
+          tags: formData.tags,
+          hasImage: !!(formData.image)
+        }
+      };
       
-      let result;
+      console.log('Sending request:', requestDetails);
+      
+      // For debugging, log the actual form data keys
+      console.log('FormData keys:');
+      for (let pair of formDataToSend.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+      
       try {
-        result = await parseResponse(response);
-        console.log('Response data:', result);
-      } catch (err) {
-        console.error('Error parsing response:', err);
-        const errorText = await response.text().catch(() => 'No response text');
-        console.error('Raw response:', errorText);
-        throw new Error('Invalid response from server');
-      }
+        const startTime = Date.now();
+        const response = await fetch(url, {
+          method,
+          body: formDataToSend,
+          // Let the browser set the Content-Type with the correct boundary
+        });
+        const endTime = Date.now();
+        
+        console.log(`Request completed in ${endTime - startTime}ms`);
+        console.log('Response status:', response.status, response.statusText);
+        
+        // Always get the response text first
+        const responseText = await response.text();
+        console.log('Raw response text:', responseText);
+        
+        let result = {};
+        try {
+          // Try to parse as JSON, but handle non-JSON responses
+          if (responseText && responseText.trim()) {
+            // Special handling for non-JSON responses
+            if (responseText.trim() === 'Something broke!') {
+              console.error('Server returned generic error:', responseText);
+              throw new Error('The server encountered an unexpected error. Our team has been notified.');
+            }
+            result = JSON.parse(responseText);
+          }
+          console.log('Parsed response data:', result);
+        } catch (parseError) {
+          console.error('Error parsing JSON response:', parseError);
+          // If we get a server error with non-JSON response, include the status code in the error
+          if (response.status >= 500) {
+            // Log the full error details for debugging
+            console.error('Server error details:', {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              responseText
+            });
+            
+            // Provide a more user-friendly error message
+            if (responseText.includes('Something broke!')) {
+              throw new Error('The server encountered an unexpected error. Our team has been notified.');
+            } else {
+              throw new Error(`Server error (${response.status}): Please try again later or contact support.`);
+            }
+          } else {
+            throw new Error(`Invalid server response. Please try again.`);
+          }
+        }
 
-      if (!response.ok) {
-        throw new Error(result.message || `Error: ${response.status} - ${response.statusText}`);
+        if (!response.ok) {
+          const errorMessage = result.message || 
+                             result.error || 
+                             result.details ||
+                             `Server error: ${response.status} ${response.statusText}`;
+          throw new Error(errorMessage);
+        }
+        
+        const successMessage = editingId ? 'Product updated successfully!' : 'Product added successfully!';
+        console.log(successMessage);
+        setSuccess(successMessage);
+        
+        // Reset form and refresh products
+        resetForm();
+        fetchProducts();
+      } catch (fetchError) {
+        console.error('Fetch error details:', {
+          name: fetchError.name,
+          message: fetchError.message,
+          stack: fetchError.stack,
+          code: fetchError.code,
+          status: fetchError.status
+        });
+        throw fetchError;
+      }
+    } catch (err) {
+      console.error('Submit error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+        code: err.code,
+        status: err.status
+      });
+      
+      // More user-friendly error messages
+      let userErrorMessage = 'Error saving product. ';
+      if (err.message.includes('Failed to fetch')) {
+        userErrorMessage += 'Unable to connect to the server. Please check your internet connection.';
+      } else if (err.message.includes('500')) {
+        userErrorMessage += 'Server error. Please try again later or contact support if the problem persists.';
+      } else {
+        userErrorMessage += err.message || 'Please check the console for details.';
       }
       
-      setSuccess(editingId ? 'Product updated successfully!' : 'Product added successfully!');
-      
-      // Reset form and refresh products
-      resetForm();
-      fetchProducts();
-    } catch (err) {
-      console.error('Submit error:', err);
-      setError(err.message || 'Error saving product');
+      setError(userErrorMessage);
     } finally {
       setLoading(false);
     }
@@ -180,7 +316,7 @@ const ProductsManagement = () => {
       isNew: product.isNew || false,
       tags: product.tags ? product.tags.join(', ') : '',
       image: product.imagePath || null, // Store the existing image path
-      imagePreview: product.imagePath ? `http://localhost:5000/${product.imagePath}` : ''
+      imagePreview: product.imagePath ? `https://threespacebackend.onrender.com/${product.imagePath}` : ''
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -437,7 +573,7 @@ const ProductsManagement = () => {
                   <TableCell>
                     {product.imagePath && (
                       <img 
-                        src={`https://spaceadmin-3qo5.onrender.com/${product.imagePath}`} 
+                        src={`https://threespacebackend.onrender.com/${product.imagePath}`} 
                         alt={product.name}
                         style={{ width: 50, height: 50, objectFit: 'cover' }}
                       />
