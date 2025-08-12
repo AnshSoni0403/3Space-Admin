@@ -143,14 +143,14 @@ const AdminPanel = () => {
           <InboxIcon sx={{ mr: 2 }} />
           <ListItemText primary="Inquiries" />
         </ListItem>
-        <ListItem button selected={selectedItem === 'blogs'} onClick={() => handleMenuItemClick('blogs')}>
+        {/* <ListItem button selected={selectedItem === 'blogs'} onClick={() => handleMenuItemClick('blogs')}>
           <ArticleIcon sx={{ mr: 2 }} />
           <ListItemText primary="Blogs" />
         </ListItem>
         <ListItem button selected={selectedItem === 'blog-list'} onClick={() => handleMenuItemClick('blog-list')}>
           <ArticleIcon sx={{ mr: 2 }} />
           <ListItemText primary="Blog List" />
-        </ListItem>
+        </ListItem> */}
         <ListItem button selected={selectedItem === 'careers'} onClick={() => handleMenuItemClick('careers')}>
           <ArticleIcon sx={{ mr: 2 }} />
           <ListItemText primary="Careers" />
