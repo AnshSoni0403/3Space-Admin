@@ -391,7 +391,7 @@ const ProductsManagement = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.9 }}>
         <Typography variant="h4">
           {editingId ? 'Edit Product' : 'Add New Product'}
         </Typography>
